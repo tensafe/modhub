@@ -150,7 +150,7 @@ func ChatHandler(c *gin.Context) {
 		return
 	}
 
-	if strings.HasPrefix(req.Model, "deepseek-") {
+	if strings.HasPrefix(req.Model, "dify_comp-") {
 		log.Printf("检测到模型 ID 以 'dify_' 开头，开始流式转发请求: %s", req.Model)
 
 		// 构造后端 Ollama 请求 URL
@@ -158,6 +158,19 @@ func ChatHandler(c *gin.Context) {
 		difyUrl := "http://localhost/v1/completion-messages" // 替换为实际服务地址
 		//req.Model = "gpt-4"
 		if err := modproxy.ForwardToDifyCompletionStream(difyUrl, "app-smfYlwzlSCXfOPpdN7xaNYLq", req, c); err != nil {
+			log.Printf("转发到 Ollama 服务时出错: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 Ollama 服务失败"})
+		}
+		return
+	}
+	if strings.HasPrefix(req.Model, "deepseek-") {
+		log.Printf("检测到模型 ID 以 'dify_' 开头，开始流式转发请求: %s", req.Model)
+
+		// 构造后端 Ollama 请求 URL
+		//difyUrl := "http://localhost/v1/chat-messages" // 替换为实际服务地址
+		difyUrl := "http://localhost/v1/workflows/run" // 替换为实际服务地址
+		//req.Model = "gpt-4"
+		if err := modproxy.ForwardToDifyWorkFlowStream(difyUrl, "app-MIf6XcOBcSfh6UgJJHidumr1", req, c); err != nil {
 			log.Printf("转发到 Ollama 服务时出错: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 Ollama 服务失败"})
 		}
