@@ -173,28 +173,20 @@ type ModNode struct {
 	ProxyConfig map[string]string `json:"proxy_config"` // 代理相关配置
 }
 
-//ModNode{
-//ID:         "ollama_model_1",
-//Name:       "Ollama GPT",
-//Type:       "Ollama",
-//Endpoint:   "http://localhost:8000/api/v1/ollama",
-//Token:      "your-ollama-token",
-//ModelID:    "ollama-gpt",
-//Parameters: map[string]string{
-//"temperature": "0.7",
-//"max_tokens": "1000",
-//},
-//}
+type DifyRequest struct {
+	Query          string                 `json:"query"`
+	Inputs         map[string]interface{} `json:"inputs"`
+	ResponseMode   string                 `json:"response_mode"`
+	User           string                 `json:"user"`
+	ConversationID string                 `json:"conversation_id,omitempty"`
+}
 
-//ModNode{
-//ID:         "openai_model_1",
-//Name:       "OpenAI GPT-4",
-//Type:       "OpenAI",
-//Endpoint:   "https://api.openai.com/v1/completions",
-//Token:      "your-openai-api-key",
-//ModelID:    "gpt-4",
-//Parameters: map[string]string{
-//"temperature": "0.9",
-//"max_tokens": "1500",
-//},
-//}
+type DifyEvent struct {
+	Event          string                 `json:"event"`
+	TaskID         string                 `json:"task_id,omitempty"`
+	MessageID      string                 `json:"message_id,omitempty"`
+	Answer         string                 `json:"answer,omitempty"`
+	CreatedAt      int64                  `json:"created_at,omitempty"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+	ConversationID string                 `json:"conversation_id,omitempty"`
+}

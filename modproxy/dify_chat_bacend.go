@@ -14,63 +14,42 @@ import (
 	"time"
 )
 
-type OpenAIStreamResponse struct {
-	ID                string `json:"id"`
-	Object            string `json:"object"`
-	Created           int64  `json:"created"`
-	Model             string `json:"model"`
-	SystemFingerprint string `json:"system_fingerprint,omitempty"` // 可选字段
-	Choices           []struct {
-		Index int `json:"index"`
-		Delta struct {
-			Content string `json:"content"`
-			// 如果有其他 delta 字段（如 role, function_call 等），可以在这里添加
-		} `json:"delta"`
-		Logprobs     interface{} `json:"logprobs"`      // 可能是 null 或复杂结构
-		FinishReason string      `json:"finish_reason"` // 可能是 null 或 "stop"/"length"/"function_call" 等
-	} `json:"choices"`
-	Usage *struct { // 可选字段（流式响应中通常为 null）
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-		TotalTokens      int `json:"total_tokens"`
-	} `json:"usage,omitempty"`
-}
+// Dify 请求响应结构体
 
-func ForwardToOpenAIStream(openaiURL string, apiKey string, req common.ChatRequest, c *gin.Context) error {
-	// 将请求对象序列化为 JSON
-	reqBody, err := json.Marshal(req)
+func ForwardToDifyChatStream(difyURL, apiKey string, req common.ChatRequest, c *gin.Context) error {
+	difyReq, err := convertToDifyChatRequest(req)
 	if err != nil {
 		return err
 	}
 
+	difyReqBody, err := json.Marshal(difyReq)
+	if err != nil {
+		return err
+	}
 	// 构造 HTTP 请求
 	client := &http.Client{}
-	httpReq, err := http.NewRequest("POST", openaiURL, bytes.NewBuffer(reqBody))
+	httpReq, err := http.NewRequest("POST", difyURL, bytes.NewBuffer(difyReqBody))
 	if err != nil {
+		log.Printf("构造 HTTP 请求时出错: %v", err)
 		return err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+apiKey) // 设置 OpenAI 的 API 密钥
+	httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 
 	// 发起 HTTP 请求
 	resp, err := client.Do(httpReq)
 	if err != nil {
+		log.Printf("请求 Dify 服务失败: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
-	// 检查后端服务的响应状态
+	// 检查 HTTP 响应状态码
 	if resp.StatusCode != http.StatusOK {
-		var errorResponse map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorResponse) // 尝试解析错误信息
-		log.Printf("OpenAI 服务响应状态码错误: %d, 错误信息: %v", resp.StatusCode, errorResponse)
-		return fmt.Errorf("OpenAI 服务响应状态码错误: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("Dify 响应状态码错误: %d, 响应内容: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("Dify 服务响应状态码错误: %d", resp.StatusCode)
 	}
-
-	// 设置响应头，支持流式传输
-	c.Header("Content-Type", resp.Header.Get("Content-Type")) // 继承后端服务响应的内容类型，通常是 "application/json"
-	c.Header("Transfer-Encoding", "chunked")
-	c.Status(http.StatusOK)
 
 	// 使用流式处理逐块读取响应体并处理
 	reader := bufio.NewReader(resp.Body)
@@ -83,9 +62,9 @@ func ForwardToOpenAIStream(openaiURL string, apiKey string, req common.ChatReque
 
 	for {
 		// 每次读取一个数据块
-		chunk, err := reader.ReadBytes('\n') // OpenAI 的流式 API 通常以换行符分割
+		chunk, err := reader.ReadBytes('\n') // Dify 的流式 API 通常以换行符分割
 		if len(chunk) > 0 {
-			processedChunk := ConvertOpenAiToOllama(string(chunk), req.Model, &sb)
+			processedChunk := convertDifyChatToOllama(string(chunk), req.Model, &sb)
 			if len(processedChunk) == 0 {
 				continue
 			}
@@ -133,8 +112,8 @@ func ForwardToOpenAIStream(openaiURL string, apiKey string, req common.ChatReque
 
 	return nil
 }
-func ConvertOpenAiToOllama(chunk string, model string, sb *strings.Builder) string {
-	// Handle OpenAI's [DONE] event
+
+func convertDifyChatToOllama(chunk string, model string, sb *strings.Builder) string {
 	chunk = strings.Trim(strings.TrimPrefix(chunk, "data:"), "\n")
 	var output common.OutputData
 
@@ -142,8 +121,24 @@ func ConvertOpenAiToOllama(chunk string, model string, sb *strings.Builder) stri
 		return ""
 	}
 
-	if chunk == "[DONE]" {
-		// 创建输出数据
+	var inputData common.DifyEvent
+	err := json.Unmarshal([]byte(chunk), &inputData)
+	if err != nil {
+		return ""
+	}
+
+	switch inputData.Event {
+	case "message":
+		output = common.OutputData{
+			Model:     model,
+			CreatedAt: time.Now().Format(time.RFC3339Nano), // 当前时间
+			Message: common.Message{
+				Role:    "assistant",
+				Content: inputData.Answer,
+			},
+			Done: false, // 假设 Answer 是完整的，直接标记 done 为 true
+		}
+	case "message_end":
 		output = common.OutputData{
 			Model:     model,
 			CreatedAt: time.Now().Format(time.RFC3339Nano), // 当前时间
@@ -153,34 +148,42 @@ func ConvertOpenAiToOllama(chunk string, model string, sb *strings.Builder) stri
 			},
 			Done: true, // 假设 Answer 是完整的，直接标记 done 为 true
 		}
-	} else {
-		var inputData OpenAIStreamResponse
-		err := json.Unmarshal([]byte(chunk), &inputData)
-		if err != nil {
-			return ""
-		}
-		if len(inputData.Choices) == 0 {
-			return ""
-		}
-
-		output = common.OutputData{
-			Model:     model,
-			CreatedAt: time.Now().Format(time.RFC3339Nano), // 当前时间
-			Message: common.Message{
-				Role:    "assistant",
-				Content: inputData.Choices[0].Delta.Content,
-			},
-			Done: true, // 假设 Answer 是完整的，直接标记 done 为 true
-		}
+	default:
+		output = common.OutputData{}
 	}
 
 	var buffer bytes.Buffer
 	encoder := json.NewEncoder(&buffer)
 	encoder.SetEscapeHTML(false) // 禁用 HTML 转义
-	err := encoder.Encode(output)
+	err = encoder.Encode(output)
 	if err != nil {
 		log.Println("Error encoding JSON:", err)
 		return ""
 	}
 	return string(buffer.String())
+}
+
+func convertToDifyChatRequest(req common.ChatRequest) (*common.DifyRequest, error) {
+	var query string
+	for i := len(req.Messages) - 1; i >= 0; i-- {
+		if req.Messages[i].Role == "user" {
+			query = req.Messages[i].Content
+			break
+		}
+	}
+	if query == "" {
+		return nil, fmt.Errorf("no user message found")
+	}
+
+	mode := "blocking"
+	if *req.Stream {
+		mode = "streaming"
+	}
+
+	return &common.DifyRequest{
+		Query:        query,
+		Inputs:       make(map[string]interface{}),
+		ResponseMode: mode,
+		User:         req.Model,
+	}, nil
 }
