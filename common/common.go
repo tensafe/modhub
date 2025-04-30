@@ -161,16 +161,26 @@ type Model struct {
 	Details    ModelDetails `json:"details"`
 }
 
-type ModNode struct {
-	ID       string `json:"id"`       // 唯一标识，区分不同模型实例
-	Name     string `json:"name"`     // 模型名称
-	Type     string `json:"type"`     // 后端类型，例如 "Ollama", "OpenAI", "Dify", "LangChat" ...
-	Endpoint string `json:"endpoint"` // 后端服务的地址（URL）
-	Token    string `json:"token"`    // 认证 token（用于 JWT 或 API Key）
-	ModelID  string `json:"model_id"` // 模型 ID（针对需要明确模型的接口，例如 OpenAI 的 fine-tuned 模型）
+type ModelBackend struct {
+	ID        string      `json:"id"`             // 唯一标识，区分不同模型实例
+	Name      string      `json:"name"`           // 模型名称
+	ModelID   string      `json:"model_id"`       // 模型唯一ID
+	ModelName string      `json:"model_name"`     // 模型名称
+	Type      string      `json:"type"`           // 后端类型，例如 "Ollama", "OpenAI", "Dify", "LangChat" ...
+	ModelData interface{} `json:"data,omitempty"` // 事件中的具体数据，动态解析为对应结构体
+}
 
-	Parameters  map[string]string `json:"parameters"`   // 模型调用的参数，例如温度、最大 token 数
-	ProxyConfig map[string]string `json:"proxy_config"` // 代理相关配置
+type ModelBackendNodeOllamaOrOpenAI struct {
+	Endpoint   string            `json:"endpoint"`   // 后端服务的地址（URL）
+	Token      string            `json:"token"`      // 认证 token（用于 JWT 或 API Key）
+	Parameters map[string]string `json:"parameters"` // 模型调用附加参数，例如温度、最大 token 数
+}
+
+type ModelBackendNodeDify struct {
+	DifyType   string            `json:"dify_type"`  // dify_chat, dify_comp, dify_agent, dify_chat_flow, dify_work_flow
+	Endpoint   string            `json:"endpoint"`   // 后端服务的地址（URL）
+	Token      string            `json:"token"`      // 认证 token（用于 JWT 或 API Key）
+	Parameters map[string]string `json:"parameters"` // 模型调用附加参数
 }
 
 type DifyRequest struct {

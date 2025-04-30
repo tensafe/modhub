@@ -1,42 +1,45 @@
 package route
 
 import (
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"log"
+	"modhub/bkconfig"
 	"modhub/common"
 	"modhub/modproxy"
 	"modhub/openai"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
 
-var mockModelsList = []common.Model{
-	{
-		Name:  "deepseek-r1:671b(sdu)",
-		Model: "deepseek-r1:671b(sdu)",
-	},
-	{
-		Name:  "deepseek-v3:671b(sdu)",
-		Model: "deepseek-v3:671b(sdu)",
-	},
-	{
-		Name:  "deepseek-r1-o:671b(sdu)",
-		Model: "deepseek-r1-o:671b(sdu)",
-	},
-	{
-		Name:  "deepseek-v3-o:671b(sdu)",
-		Model: "deepseek-v3-o:671b(sdu)",
-	},
-	{
-		Name:  "qwq-o:32b(sdu)",
-		Model: "qwq-o:32b(sdu)",
-	},
-	{
-		Name:  "qwq:32b(sdu)",
-		Model: "qwq:32b(sdu)",
-	},
-}
+//var mockModelsList = []common.Model{
+//	{
+//		Name:  "deepseek-r1:671b(sdu)",
+//		Model: "deepseek-r1:671b(sdu)",
+//	},
+//	{
+//		Name:  "deepseek-v3:671b(sdu)",
+//		Model: "deepseek-v3:671b(sdu)",
+//	},
+//	{
+//		Name:  "deepseek-r1-o:671b(sdu)",
+//		Model: "deepseek-r1-o:671b(sdu)",
+//	},
+//	{
+//		Name:  "deepseek-v3-o:671b(sdu)",
+//		Model: "deepseek-v3-o:671b(sdu)",
+//	},
+//	{
+//		Name:  "qwq-o:32b(sdu)",
+//		Model: "qwq-o:32b(sdu)",
+//	},
+//	{
+//		Name:  "qwq:32b(sdu)",
+//		Model: "qwq:32b(sdu)",
+//	},
+//}
 
 //var baseUrl = "https://aiassist.sdu.edu.cn"
 
@@ -110,9 +113,10 @@ func RouterApi() {
 }
 
 func ListHandler(c *gin.Context) {
+	modelList := bkconfig.GenerateModelList()
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
-		"models": mockModelsList,
+		"models": modelList,
 	})
 }
 
@@ -123,13 +127,20 @@ func ChatHandler(c *gin.Context) {
 		return
 	}
 
-	// 如果模型 ID 以 "ollama_" 开头，则转发到 ollama 后端服务
-	//if strings.HasPrefix(req.Model, "ollama_") {
-	if strings.HasPrefix(req.Model, "ollama_") {
-		log.Printf("检测到模型 ID 以 'ollama_' 开头，开始流式转发请求: %s", req.Model)
+	modelBackend := bkconfig.GetModelByModelID(req.Model)
+	if len(modelBackend.ModelID) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "model not found"})
+		return
+	}
 
+	// 如果模型 ID 以 "ollama_" 开头，则转发到 ollama 后端服务
+	if strings.EqualFold(modelBackend.Type, "Ollama") {
+		log.Printf("检测到Ollama模型，开始流式转发请求: %s", req.Model)
 		// 构造后端 Ollama 请求 URL
-		ollamaURL := "https://ecs.tensafe.com:6014/api/chat" // 替换为实际服务地址
+		var ollamaData common.ModelBackendNodeOllamaOrOpenAI
+		parseBackendData(modelBackend.ModelData, &ollamaData)
+		req.Model = modelBackend.ModelName
+		ollamaURL, _ := url.JoinPath(ollamaData.Endpoint, "/api/chat")
 		if err := modproxy.ForwardToOllamaStream(ollamaURL, req, c); err != nil {
 			log.Printf("转发到 Ollama 服务时出错: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 Ollama 服务失败"})
@@ -137,49 +148,60 @@ func ChatHandler(c *gin.Context) {
 		return
 	}
 
-	if strings.HasPrefix(req.Model, "openai-") {
-		log.Printf("检测到模型 ID 以 'openai_' 开头，开始流式转发请求: %s", req.Model)
-
-		// 构造后端 Ollama 请求 URL
-		openaiUrl := "https://ecs.tensafe.com:6014/v1/chat/completions" // 替换为实际服务地址
-		//req.Model = "gpt-4"
-		if err := modproxy.ForwardToOpenAIStream(openaiUrl, "sk-xxxxx", req, c); err != nil {
-			log.Printf("转发到 Ollama 服务时出错: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 Ollama 服务失败"})
+	if strings.EqualFold(modelBackend.Type, "OpenAI") {
+		log.Printf("检测到OpenAI模型，开始流式转发请求: %s", req.Model)
+		// 构造后端 OpenAI 请求 URL
+		var openAIData common.ModelBackendNodeOllamaOrOpenAI
+		parseBackendData(modelBackend.ModelData, &openAIData)
+		req.Model = modelBackend.ModelName
+		openAIURL, _ := url.JoinPath(openAIData.Endpoint, "/v1/chat/completions")
+		if err := modproxy.ForwardToOpenAIStream(openAIURL, openAIData.Token, req, c); err != nil {
+			log.Printf("转发到 OpenAI 服务时出错: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 OpenAI 服务失败"})
 		}
 		return
 	}
 
-	if strings.HasPrefix(req.Model, "dify_comp-") {
-		log.Printf("检测到模型 ID 以 'dify_' 开头，开始流式转发请求: %s", req.Model)
+	if strings.EqualFold(modelBackend.Type, "Dify") {
+		log.Printf("检测到Dify模型，开始流式转发请求: %s", req.Model)
 
-		// 构造后端 Ollama 请求 URL
-		//difyUrl := "http://localhost/v1/chat-messages" // 替换为实际服务地址
-		difyUrl := "http://localhost/v1/completion-messages" // 替换为实际服务地址
-		//req.Model = "gpt-4"
-		if err := modproxy.ForwardToDifyCompletionStream(difyUrl, "app-smfYlwzlSCXfOPpdN7xaNYLq", req, c); err != nil {
-			log.Printf("转发到 Ollama 服务时出错: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 Ollama 服务失败"})
+		var difyData common.ModelBackendNodeDify
+		parseBackendData(modelBackend.ModelData, &difyData)
+		//dify_chat, dify_comp, dify_agent, dify_chat_flow, dify_work_flow
+		switch difyData.DifyType {
+		case "dify_chat":
+			fallthrough
+		case "dify_agent":
+			fallthrough
+		case "dify_chat_flow":
+			difyUrl, _ := url.JoinPath(difyData.Endpoint, "v1/chat-messages")
+			if err := modproxy.ForwardToDifyChatStream(difyUrl, difyData.Token, req, c); err != nil {
+				log.Printf("转发到 Dify 服务时出错: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 Dify 服务失败"})
+			}
+		case "dify_comp":
+			difyUrl, _ := url.JoinPath(difyData.Endpoint, "/v1/completion-messages")
+			if err := modproxy.ForwardToDifyCompletionStream(difyUrl, difyData.Token, req, c); err != nil {
+				log.Printf("转发到 Dify 服务时出错: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 Dify 服务失败"})
+			}
+		case "dify_work_flow":
+			difyUrl, _ := url.JoinPath(difyData.Endpoint, "/v1/workflows/run")
+			if err := modproxy.ForwardToDifyCompletionStream(difyUrl, difyData.Token, req, c); err != nil {
+				log.Printf("转发到 Dify 服务时出错: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 Dify 服务失败"})
+			}
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "未匹配合适Dify服务"})
 		}
-		return
 	}
-	if strings.HasPrefix(req.Model, "deepseek-") {
-		log.Printf("检测到模型 ID 以 'dify_' 开头，开始流式转发请求: %s", req.Model)
+}
 
-		// 构造后端 Ollama 请求 URL
-		//difyUrl := "http://localhost/v1/chat-messages" // 替换为实际服务地址
-		difyUrl := "http://localhost/v1/workflows/run" // 替换为实际服务地址
-		//req.Model = "gpt-4"
-		if err := modproxy.ForwardToDifyWorkFlowStream(difyUrl, "app-MIf6XcOBcSfh6UgJJHidumr1", req, c); err != nil {
-			log.Printf("转发到 Ollama 服务时出错: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 Ollama 服务失败"})
-		}
-		return
-	}
-
-	//err := DeepSeek_Sdu_Compose_Chat(&req, c)
-	var err error
+// 动态解析 data 字段
+func parseBackendData(data interface{}, out interface{}) error {
+	bytes, err := json.Marshal(data)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
+	return json.Unmarshal(bytes, out)
 }
