@@ -109,6 +109,7 @@ func RouterApi() {
 	//r.POST("/v1/embeddings", openai.EmbeddingsMiddleware(), EmbedHandler)
 	router.GET("/v1/models", openai.ListMiddleware(), ListHandler)
 
+	log.Printf("服务监听地址：127.0.0.1:11436")
 	router.Run("127.0.0.1:11436")
 }
 

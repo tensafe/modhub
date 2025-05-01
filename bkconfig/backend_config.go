@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"modhub/common"
+	"os"
+	"path/filepath"
 )
 
 // 生成测试数据
@@ -70,7 +72,8 @@ func GenerateTestData() []common.ModelBackend {
 }
 
 func GetModelByModelID(modelName string) common.ModelBackend {
-	modelBackends := GenerateTestData()
+	//modelBackends := GenerateTestData()
+	modelBackends, _ := ReadModelsFromFile("./bkconfig.json")
 	for _, modelBackend := range modelBackends {
 		if modelBackend.Name == modelName {
 			return modelBackend
@@ -81,10 +84,8 @@ func GetModelByModelID(modelName string) common.ModelBackend {
 
 func GenerateModelList() []common.Model {
 	var modelList []common.Model
-	modelBackends := GenerateTestData()
-
-	//Name:  "deepseek-r1:671b(sdu)",
-	//Model: "deepseek-r1:671b(sdu)",
+	//modelBackends := GenerateTestData()
+	modelBackends, _ := ReadModelsFromFile("./bkconfig.json")
 
 	for _, model := range modelBackends {
 		modelListNode := common.Model{
@@ -109,8 +110,22 @@ func WriteModelsToFile(models []common.ModelBackend, filename string) error {
 	return nil
 }
 
+func GetBaseDir(fn string) string {
+	exePath, err := os.Executable()
+	if err != nil {
+		fmt.Println("Error getting executable path:", err)
+		return "./"
+	}
+
+	// 获取可执行文件所在的目录
+	exeDir := filepath.Dir(exePath)
+	fullPath := filepath.Join(exeDir, fn)
+	return fullPath
+}
+
 // 从文件读取 ModelBackend 数组
 func ReadModelsFromFile(filename string) ([]common.ModelBackend, error) {
+	filename = GetBaseDir(filename)
 	fileData, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %v", err)
