@@ -54,7 +54,6 @@ func corazaMiddleware(waf coraza.WAF) gin.HandlerFunc {
 			}
 		}
 		c.Writer.WriteHeader(recorder.StatusCode)
-		_, _ = c.Writer.Write(recorder.Body)
 		c.Abort()
 	}
 }
@@ -146,12 +145,13 @@ func RouterApi() {
 	// Chat endpoint
 	router.POST("/api/chat", ChatHandler)
 	router.POST("/v1/chat/completions", openai.ChatMiddleware(), ChatHandler)
-	//r.POST("/v1/completions", openai.CompletionsMiddleware(), GenerateHandler)
-	//r.POST("/v1/embeddings", openai.EmbeddingsMiddleware(), EmbedHandler)
 	router.GET("/v1/models", openai.ListMiddleware(), ListHandler)
 
+	//router.POST("/v1/completions", openai.CompletionsMiddleware(), GenerateHandler)
+	//router.POST("/v1/embeddings", openai.EmbeddingsMiddleware(), EmbedHandler)
+
 	log.Printf("服务监听地址：127.0.0.1:11436")
-	router.Run("127.0.0.1:11436")
+	router.Run("0.0.0.0:11436")
 }
 
 func ListHandler(c *gin.Context) {
