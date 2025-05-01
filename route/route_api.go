@@ -2,6 +2,10 @@ package route
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/corazawaf/coraza/v3"
+	txhttp "github.com/corazawaf/coraza/v3/http"
+	"github.com/corazawaf/coraza/v3/types"
 	"github.com/gin-gonic/gin"
 	"log"
 	"modhub/bkconfig"
@@ -14,38 +18,75 @@ import (
 	"time"
 )
 
-//var mockModelsList = []common.Model{
-//	{
-//		Name:  "deepseek-r1:671b(sdu)",
-//		Model: "deepseek-r1:671b(sdu)",
-//	},
-//	{
-//		Name:  "deepseek-v3:671b(sdu)",
-//		Model: "deepseek-v3:671b(sdu)",
-//	},
-//	{
-//		Name:  "deepseek-r1-o:671b(sdu)",
-//		Model: "deepseek-r1-o:671b(sdu)",
-//	},
-//	{
-//		Name:  "deepseek-v3-o:671b(sdu)",
-//		Model: "deepseek-v3-o:671b(sdu)",
-//	},
-//	{
-//		Name:  "qwq-o:32b(sdu)",
-//		Model: "qwq-o:32b(sdu)",
-//	},
-//	{
-//		Name:  "qwq:32b(sdu)",
-//		Model: "qwq:32b(sdu)",
-//	},
-//}
+// Gin ResponseWriter wrapper
+// ginWAFResponseRecorder is a custom ResponseWriter for capturing responses
+type ginWAFResponseRecorder struct {
+	gin.ResponseWriter
+	StatusCode int
+	Body       []byte
+}
 
-//var baseUrl = "https://aiassist.sdu.edu.cn"
+func (r *ginWAFResponseRecorder) WriteHeader(statusCode int) {
+	r.StatusCode = statusCode
+	r.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (r *ginWAFResponseRecorder) Write(data []byte) (int, error) {
+	r.Body = append(r.Body, data...)
+	return r.ResponseWriter.Write(data)
+}
+
+// Gin handler wrapped with Coraza WAF
+func corazaMiddleware(waf coraza.WAF) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Wrap the Gin request with Coraza WAF
+		recorder := &ginWAFResponseRecorder{ResponseWriter: c.Writer, Body: []byte{}}
+		txhttp.WrapHandler(waf, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c.Request = r
+			c.Writer = recorder
+			c.Next()
+		})).ServeHTTP(recorder, c.Request)
+
+		// Write the recorded response back to the client
+		for k, v := range recorder.Header() {
+			for _, vv := range v {
+				c.Writer.Header().Add(k, vv)
+			}
+		}
+		c.Writer.WriteHeader(recorder.StatusCode)
+		_, _ = c.Writer.Write(recorder.Body)
+		c.Abort()
+	}
+}
+
+func createWAF() coraza.WAF {
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logError).
+			WithDirectivesFromFile("./tswaf_coreruleset/coraza.conf").
+			WithDirectivesFromFile("./tswaf_coreruleset/crs-setup.conf.example").
+			WithDirectivesFromFile("./tswaf_coreruleset/rules/*.conf"))
+	if err != nil {
+		log.Printf("error creating waf: %v", err)
+		return nil
+	}
+	return waf
+}
+
+func logError(error types.MatchedRule) {
+	msg := error.ErrorLog()
+	fmt.Printf("[logError][%s] %s\n", error.Rule().Severity(), msg)
+}
 
 func RouterApi() {
+	waf := createWAF()
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
+
+	if waf != nil {
+		router.Use(corazaMiddleware(waf))
+	}
+
 	// 全局 CORS 中间件
 	router.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*") // 允许所有域名（生产环境建议指定具体域名）
