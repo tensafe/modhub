@@ -38,21 +38,21 @@ func parseArgs() {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), `Usage: %s 
 Options:
-  -h, --help show this help message and exit
-  --port set web port
-  --dbhost set web db host
-  --dbuser set web db user name
-  --dbpass set web db password
-  --dbname set web db db name
-`,
-			os.Args[0], "\n")
+  -h, --help       show this help message and exit
+  --action         specify the action to perform (default: web)
+  --address        set web server address (default: 0.0.0.0:8090)
+  --dbhost         set web db host (default: localhost:3306)
+  --dbuser         set web db user name (default: root)
+  --dbpass         set web db password (default: password)
+  --dbname         set web db name (default: dbname)
+`, os.Args[0])
 	}
-	flag.StringVar(&options.Action, "action", "web", "web,setconfig,getconfig")
-	flag.StringVar(&options.Address, "address", "0.0.0.0:8090", "set action is web, start with web")
-	flag.StringVar(&options.DBHost, "dbhost", "localhost:3306", "host with port")
-	flag.StringVar(&options.DBUser, "dbuser", "root", "set dbuser name")
-	flag.StringVar(&options.DBPass, "dbpass", "password", "set dbuser password")
-	flag.StringVar(&options.DBName, "dname", "dbname", "set database name")
+	flag.StringVar(&options.Action, "action", "web", "specify the action to perform")
+	flag.StringVar(&options.Address, "address", "0.0.0.0:8090", "set web server address")
+	flag.StringVar(&options.DBHost, "dbhost", "localhost:3306", "set web db host")
+	flag.StringVar(&options.DBUser, "dbuser", "root", "set db user name")
+	flag.StringVar(&options.DBPass, "dbpass", "password", "set db password")
+	flag.StringVar(&options.DBName, "dbname", "dbname", "set database name")
 	flag.Parse()
 }
 
@@ -141,14 +141,7 @@ func SyncCronData() error {
 }
 
 func main() {
-	targetDir := "tswaf_coreruleset"
-	// 将所有嵌入的文件释放到目标目录
-	if err := extractEmbedFiles(targetDir, "coreruleset"); err != nil {
-		log.Printf("Error extracting embedded files: %v", err)
-	}
-
 	parseArgs()
-
 	if options.Action == "setconfig" {
 		fmt.Println("Action:", options.Action)
 		bkconfig.SetConfigValue("db_address", options.DBHost)
@@ -164,6 +157,12 @@ func main() {
 		dbName, _ := bkconfig.GetConfigValue("db_dbname")
 		fmt.Println("show dbconfig info:", dbHost, dbUserName, dbPassword, dbName)
 	} else {
+		targetDir := "tswaf_coreruleset"
+		// 将所有嵌入的文件释放到目标目录
+		if err := extractEmbedFiles(targetDir, "coreruleset"); err != nil {
+			log.Printf("Error extracting embedded files: %v", err)
+		}
+
 		SyncCronData()
 		route.RouterApi(options.Address)
 		// 捕捉系统信号，以便优雅地关闭程序
