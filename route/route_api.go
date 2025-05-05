@@ -186,7 +186,7 @@ func ChatHandler(c *gin.Context) {
 	}
 
 	// 如果模型 ID 以 "ollama_" 开头，则转发到 ollama 后端服务
-	if strings.EqualFold(modelBackend.Type, "Ollama") {
+	if strings.EqualFold(modelBackend.Type, "ollama") {
 		log.Printf("检测到Ollama模型，开始流式转发请求: %s", req.Model)
 		// 构造后端 Ollama 请求 URL
 		var ollamaData common.ModelBackendNodeOllamaOrOpenAI
@@ -200,7 +200,7 @@ func ChatHandler(c *gin.Context) {
 		return
 	}
 
-	if strings.EqualFold(modelBackend.Type, "OpenAI") {
+	if strings.EqualFold(modelBackend.Type, "openai") {
 		log.Printf("检测到OpenAI模型，开始流式转发请求: %s", req.Model)
 		// 构造后端 OpenAI 请求 URL
 		var openAIData common.ModelBackendNodeOllamaOrOpenAI
@@ -214,7 +214,7 @@ func ChatHandler(c *gin.Context) {
 		return
 	}
 
-	if strings.EqualFold(modelBackend.Type, "Dify") {
+	if strings.EqualFold(modelBackend.Type, "dify") {
 		log.Printf("检测到Dify模型，开始流式转发请求: %s", req.Model)
 
 		var difyData common.ModelBackendNodeDify

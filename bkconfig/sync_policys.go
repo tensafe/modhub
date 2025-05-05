@@ -420,3 +420,28 @@ func SyncBackendData() map[string]interface{} {
 	local_model_cache = modelCache
 	return modelCache
 }
+
+func GetModelByModelID(modelName string) common.ModelBackend {
+	local_model_cache_mu.RLock()         // 写锁
+	defer local_model_cache_mu.RUnlock() // 解锁k
+	for _, modelBackend := range local_model_cache {
+		modelBackendNode := modelBackend.(common.ModelBackend)
+		if modelBackendNode.Name == modelName {
+			return modelBackendNode
+		}
+	}
+	return common.ModelBackend{}
+}
+
+func GenerateModelList() []common.Model {
+	var modelList []common.Model
+	for _, model := range local_model_cache {
+		modelBackendNode := model.(common.ModelBackend)
+		modelListNode := common.Model{
+			Name:  modelBackendNode.Name,
+			Model: modelBackendNode.ModelID,
+		}
+		modelList = append(modelList, modelListNode)
+	}
+	return modelList
+}
