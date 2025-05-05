@@ -87,7 +87,7 @@ func ModelMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	}).ServeHTTP(w, r)
 }
 
-func RouterApi() {
+func RouterApi(address string) {
 	waf := createWAF()
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
@@ -160,10 +160,8 @@ func RouterApi() {
 	//router.POST("/v1/completions", openai.CompletionsMiddleware(), GenerateHandler)
 	//router.POST("/v1/embeddings", openai.EmbeddingsMiddleware(), EmbedHandler)
 
-	//router.HandleFunc("/tsdata/metrics", TsDataMetricsHandler)
-
-	log.Printf("服务监听地址：127.0.0.1:11436")
-	router.Run("0.0.0.0:11436")
+	log.Printf("服务监听地址：" + address)
+	router.Run(address)
 }
 
 func ListHandler(c *gin.Context) {

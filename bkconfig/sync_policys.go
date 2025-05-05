@@ -10,10 +10,13 @@ import (
 	"log"
 	"modhub/common"
 	"strings"
+	"sync"
 )
 
 var (
-	local_sqlite_name = "./local_database.db"
+	local_sqlite_name    = "./local_database.db"
+	local_model_cache    = map[string]interface{}{}
+	local_model_cache_mu sync.RWMutex // 读写锁
 )
 
 // 设置配置值的函数
@@ -171,13 +174,12 @@ func SyncDataToJSON() error {
 
 		backend_type := ""
 		if value, exists := rowData["type"]; exists && value != nil {
-			fmt.Println("Key 'type' exists and is not nil:", value)
 			backend_type = fmt.Sprintf("%v", value)
 		}
 		if strings.EqualFold(backend_type, "dify") {
 			model_id, model_json, err := buildDifyModelJson(rowData)
 			if err == nil {
-				fmt.Println(model_id, model_json)
+				//fmt.Println(model_id, model_json)
 				_, err = sqliteDB.Exec(insertOrReplaceQuery, model_id, model_json)
 				if err != nil {
 					log.Printf("Failed to insert or replace data: %v", err)
@@ -188,7 +190,7 @@ func SyncDataToJSON() error {
 		} else if strings.EqualFold(backend_type, "openai") || strings.EqualFold(backend_type, "ollama") {
 			model_id, model_json, err := buildOllamaOrOpenAIModelJson(rowData)
 			if err == nil {
-				fmt.Println(model_id, model_json)
+				//fmt.Println(model_id, model_json)
 				_, err = sqliteDB.Exec(insertOrReplaceQuery, model_id, model_json)
 				if err != nil {
 					log.Printf("Failed to insert or replace data: %v", err)
@@ -206,6 +208,7 @@ func SyncDataToJSON() error {
 func buildDifyModelJson(rowData map[string]interface{}) (string, string, error) {
 	//retJson := ""
 	id := ""
+	name := ""
 	model_id := ""
 	model_name := ""
 	dify_type := ""
@@ -216,6 +219,12 @@ func buildDifyModelJson(rowData map[string]interface{}) (string, string, error) 
 		id = fmt.Sprintf("%v", value)
 	} else {
 		return "", "", errors.New("id not exists")
+	}
+
+	if value, exists := rowData["name"]; exists && value != nil {
+		name = fmt.Sprintf("%v", value)
+	} else {
+		return "", "", errors.New("name not exists")
 	}
 
 	if value, exists := rowData["model_id"]; exists && value != nil {
@@ -250,6 +259,7 @@ func buildDifyModelJson(rowData map[string]interface{}) (string, string, error) 
 
 	dify_backend := common.ModelBackend{}
 	dify_backend.ID = id
+	dify_backend.Name = name
 	dify_backend.ModelID = model_id
 	dify_backend.ModelName = model_name
 	dify_backend.Type = "Dify"
@@ -272,6 +282,7 @@ func buildDifyModelJson(rowData map[string]interface{}) (string, string, error) 
 func buildOllamaOrOpenAIModelJson(rowData map[string]interface{}) (string, string, error) {
 	//retJson := ""
 	id := ""
+	name := ""
 	model_id := ""
 	model_name := ""
 	end_point := ""
@@ -282,6 +293,12 @@ func buildOllamaOrOpenAIModelJson(rowData map[string]interface{}) (string, strin
 		id = fmt.Sprintf("%v", value)
 	} else {
 		return "", "", errors.New("id not exists")
+	}
+
+	if value, exists := rowData["name"]; exists && value != nil {
+		name = fmt.Sprintf("%v", value)
+	} else {
+		return "", "", errors.New("name not exists")
 	}
 
 	if value, exists := rowData["model_id"]; exists && value != nil {
@@ -316,6 +333,7 @@ func buildOllamaOrOpenAIModelJson(rowData map[string]interface{}) (string, strin
 
 	openai_backend := common.ModelBackend{}
 	openai_backend.ID = id
+	openai_backend.Name = name
 	openai_backend.ModelID = model_id
 	openai_backend.ModelName = model_name
 	openai_backend.Type = backend_type
@@ -331,4 +349,73 @@ func buildOllamaOrOpenAIModelJson(rowData map[string]interface{}) (string, strin
 		return "", "", err
 	}
 	return id, string(jsonData), nil
+}
+
+func BuildModelMapCacheInfo() (map[string]interface{}, error) {
+	sqliteDB, err := sql.Open("sqlite3", local_sqlite_name)
+	if err != nil {
+		log.Printf("无法连接到 SQLite 数据库: %v", err)
+		return nil, err
+	}
+
+	defer sqliteDB.Close()
+	// 查询 backend_models 表数据
+	query := `SELECT model_id, model_info FROM backend_models`
+
+	// 执行查询
+	rows, err := sqliteDB.Query(query)
+	if err != nil {
+		log.Printf("查询 backend_models 数据失败: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+	// 用于存储查询结果的 map
+	modelMapCache := make(map[string]interface{})
+
+	// 遍历查询结果，将数据存入 map
+	for rows.Next() {
+		var modelID string
+		var modelJSON string
+
+		// 扫描每行数据到变量
+		err := rows.Scan(&modelID, &modelJSON)
+		if err != nil {
+			log.Printf("扫描数据行失败: %v", err)
+			return nil, err
+		}
+		// 将结果存入 map，键为 model_id，值为 model_json
+		var modelNode common.ModelBackend
+		err = json.Unmarshal([]byte(modelJSON), &modelNode)
+		if err != nil {
+			continue
+		}
+		// 根据 Type 字段解析 ModelData
+		switch modelNode.Type {
+		case "ollama", "openai":
+			var data common.ModelBackendNodeOllamaOrOpenAI
+			jsonData, _ := json.Marshal(modelNode.ModelData)
+			json.Unmarshal(jsonData, &data)
+			modelNode.ModelData = data
+		case "dify":
+			var data common.ModelBackendNodeDify
+			jsonData, _ := json.Marshal(modelNode.ModelData)
+			json.Unmarshal(jsonData, &data)
+			modelNode.ModelData = data
+		}
+
+		modelMapCache[modelID] = modelNode
+	}
+	return modelMapCache, nil
+}
+
+func SyncBackendData() {
+	SyncDataToJSON()
+	modelCache, err := BuildModelMapCacheInfo()
+	if err != nil {
+		return
+	}
+
+	local_model_cache_mu.Lock()         // 写锁
+	defer local_model_cache_mu.Unlock() // 解锁
+	local_model_cache = modelCache
 }

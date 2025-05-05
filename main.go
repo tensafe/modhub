@@ -2,20 +2,59 @@ package main
 
 import (
 	"embed"
+	"flag"
 	"fmt"
+	"github.com/go-co-op/gocron"
 	"log"
+	"modhub/bkconfig"
 	"modhub/route"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // 使用 embed 将静态文件夹打包
 //
 //go:embed coreruleset/*
 var corerulesetFiles embed.FS
+
+type RunOptions struct {
+	Action  string
+	Address string
+	DBHost  string
+	DBUser  string
+	DBPass  string
+	DBName  string
+}
+
+var (
+	options RunOptions
+)
+
+func parseArgs() {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), `Usage: %s 
+Options:
+  -h, --help show this help message and exit
+  --port set web port
+  --dbhost set web db host
+  --dbuser set web db user name
+  --dbpass set web db password
+  --dbname set web db db name
+`,
+			os.Args[0], "\n")
+	}
+	flag.StringVar(&options.Action, "action", "web", "web,setconfig,getconfig")
+	flag.StringVar(&options.Address, "address", "0.0.0.0:8090", "set action is web, start with web")
+	flag.StringVar(&options.DBHost, "dbhost", "localhost:3306", "host with port")
+	flag.StringVar(&options.DBUser, "dbuser", "root", "set dbuser name")
+	flag.StringVar(&options.DBPass, "dbpass", "password", "set dbuser password")
+	flag.StringVar(&options.DBName, "dname", "dbname", "set database name")
+	flag.Parse()
+}
 
 // 提取 embed.FS 中的文件到目标目录
 func extractEmbedFiles(targetDir, embedRoot string) error {
@@ -92,6 +131,15 @@ func deleteFolder(folder string) error {
 	return nil
 }
 
+func SyncCronData() error {
+	scheduler := gocron.NewScheduler(time.UTC)
+	// 添加任务
+	scheduler.Every(60).Seconds().Do(bkconfig.SyncBackendData)
+	// 启动调度器
+	scheduler.StartAsync()
+	return nil
+}
+
 func main() {
 	targetDir := "tswaf_coreruleset"
 	// 将所有嵌入的文件释放到目标目录
@@ -99,11 +147,29 @@ func main() {
 		log.Printf("Error extracting embedded files: %v", err)
 	}
 
-	route.RouterApi()
-	// 捕捉系统信号，以便优雅地关闭程序
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	parseArgs()
 
-	// 等待信号以便优雅地退出
-	<-sigChan
+	if options.Action == "setconfig" {
+		fmt.Println("Action:", options.Action)
+		bkconfig.SetConfigValue("db_address", options.DBHost)
+		bkconfig.SetConfigValue("db_username", options.DBUser)
+		bkconfig.SetConfigValue("db_password", options.DBPass)
+		bkconfig.SetConfigValue("db_dbname", options.DBName)
+		fmt.Println("dbconfig set finish")
+	} else if options.Action == "getconfig" {
+		fmt.Println("Action:", options.Action)
+		dbHost, _ := bkconfig.GetConfigValue("db_address")
+		dbUserName, _ := bkconfig.GetConfigValue("db_username")
+		dbPassword, _ := bkconfig.GetConfigValue("db_password")
+		dbName, _ := bkconfig.GetConfigValue("db_dbname")
+		fmt.Println("show dbconfig info:", dbHost, dbUserName, dbPassword, dbName)
+	} else {
+		SyncCronData()
+		route.RouterApi(options.Address)
+		// 捕捉系统信号，以便优雅地关闭程序
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		// 等待信号以便优雅地退出
+		<-sigChan
+	}
 }
