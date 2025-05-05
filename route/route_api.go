@@ -7,9 +7,11 @@ import (
 	txhttp "github.com/corazawaf/coraza/v3/http"
 	"github.com/corazawaf/coraza/v3/types"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"modhub/bkconfig"
 	"modhub/common"
+	"modhub/metrics"
 	"modhub/modproxy"
 	"modhub/openai"
 	"net/http"
@@ -75,6 +77,14 @@ func createWAF() coraza.WAF {
 func logError(error types.MatchedRule) {
 	msg := error.ErrorLog()
 	fmt.Printf("[logError][%s] %s\n", error.Rule().Severity(), msg)
+}
+
+func ModelMetricsHandler(w http.ResponseWriter, r *http.Request) {
+	// 自定义逻辑：例如打印日志或其他操作
+	// 调用标准的 Prometheus 处理器
+	promhttp.HandlerFor(metrics.ModelMetricRegistry, promhttp.HandlerOpts{
+		EnableOpenMetrics: true,
+	}).ServeHTTP(w, r)
 }
 
 func RouterApi() {
@@ -149,6 +159,8 @@ func RouterApi() {
 
 	//router.POST("/v1/completions", openai.CompletionsMiddleware(), GenerateHandler)
 	//router.POST("/v1/embeddings", openai.EmbeddingsMiddleware(), EmbedHandler)
+
+	//router.HandleFunc("/tsdata/metrics", TsDataMetricsHandler)
 
 	log.Printf("服务监听地址：127.0.0.1:11436")
 	router.Run("0.0.0.0:11436")
