@@ -39,7 +39,7 @@ func parseArgs() {
 		fmt.Fprintf(flag.CommandLine.Output(), `Usage: %s 
 Options:
   -h, --help       show this help message and exit
-  --action         specify the action to perform (default: web)
+  --action         specify the action to perform (default: web, getconfig, setconfig,loadbackend)
   --address        set web server address (default: 0.0.0.0:8090)
   --dbhost         set web db host (default: localhost:3306)
   --dbuser         set web db user name (default: root)
@@ -156,6 +156,12 @@ func main() {
 		dbPassword, _ := bkconfig.GetConfigValue("db_password")
 		dbName, _ := bkconfig.GetConfigValue("db_dbname")
 		fmt.Println("show dbconfig info:", dbHost, dbUserName, dbPassword, dbName)
+	} else if options.Action == "loadbackend" {
+		fmt.Println("Action:", options.Action)
+		backends := bkconfig.SyncBackendData()
+		for _, backend := range backends {
+			fmt.Println(backend)
+		}
 	} else {
 		targetDir := "tswaf_coreruleset"
 		// 将所有嵌入的文件释放到目标目录

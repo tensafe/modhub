@@ -408,14 +408,15 @@ func BuildModelMapCacheInfo() (map[string]interface{}, error) {
 	return modelMapCache, nil
 }
 
-func SyncBackendData() {
+func SyncBackendData() map[string]interface{} {
 	SyncDataToJSON()
 	modelCache, err := BuildModelMapCacheInfo()
 	if err != nil {
-		return
+		return nil
 	}
 
 	local_model_cache_mu.Lock()         // 写锁
 	defer local_model_cache_mu.Unlock() // 解锁
 	local_model_cache = modelCache
+	return modelCache
 }
