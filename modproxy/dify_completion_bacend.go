@@ -63,7 +63,7 @@ func ForwardToDifyCompletionStream(difyURL, apiKey string, req common.ChatReques
 		// 每次读取一个数据块
 		chunk, err := reader.ReadBytes('\n') // Dify 的流式 API 通常以换行符分割
 		if len(chunk) > 0 {
-			processedChunk := convertDifyCompletionToOllama(string(chunk), req.Model, &sb)
+			processedChunk := convertDifyCompletionToOllama(string(chunk), req.Model, &sb, isStream)
 			if len(processedChunk) == 0 {
 				continue
 			}
@@ -112,7 +112,7 @@ func ForwardToDifyCompletionStream(difyURL, apiKey string, req common.ChatReques
 	return nil
 }
 
-func convertDifyCompletionToOllama(chunk string, model string, sb *strings.Builder) string {
+func convertDifyCompletionToOllama(chunk string, model string, sb *strings.Builder, isStream bool) string {
 	chunk = strings.Trim(strings.TrimPrefix(chunk, "data:"), "\n")
 	var output common.OutputData
 
@@ -149,6 +149,10 @@ func convertDifyCompletionToOllama(chunk string, model string, sb *strings.Build
 		}
 	default:
 		output = common.OutputData{}
+	}
+
+	if !isStream {
+		output.Done = true
 	}
 
 	var buffer bytes.Buffer

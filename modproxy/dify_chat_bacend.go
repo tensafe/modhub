@@ -64,7 +64,7 @@ func ForwardToDifyChatStream(difyURL, apiKey string, req common.ChatRequest, c *
 		// 每次读取一个数据块
 		chunk, err := reader.ReadBytes('\n') // Dify 的流式 API 通常以换行符分割
 		if len(chunk) > 0 {
-			processedChunk := convertDifyChatToOllama(string(chunk), req.Model, &sb)
+			processedChunk := convertDifyChatToOllama(string(chunk), req.Model, &sb, isStream)
 			if len(processedChunk) == 0 {
 				continue
 			}
@@ -96,24 +96,24 @@ func ForwardToDifyChatStream(difyURL, apiKey string, req common.ChatRequest, c *
 	}
 
 	if !isStream {
-		// 非流式模式下，组装完整的响应
-		output := common.OutputData{
-			Model:     req.Model,
-			CreatedAt: time.Now().Format(time.RFC3339Nano), // 当前时间
-			Message: common.Message{
-				Role:    "assistant",
-				Content: sb.String(),
-			},
-			Done: true, // 假设响应是完整的，直接标记 done 为 true
-		}
+		// 非流式模式下，组装完整的响应,使用convertDifyChatToOllama转换之后的函数
+		//output := common.OutputData{
+		//	Model:     req.Model,
+		//	CreatedAt: time.Now().Format(time.RFC3339Nano), // 当前时间
+		//	Message: common.Message{
+		//		Role:    "assistant",
+		//		Content: sb.String(),
+		//	},
+		//	Done: true, // 假设响应是完整的，直接标记 done 为 true
+		//}
 		c.Header("Content-Type", "application/json")
-		c.JSON(http.StatusOK, output)
+		c.String(http.StatusOK, sb.String())
 	}
 
 	return nil
 }
 
-func convertDifyChatToOllama(chunk string, model string, sb *strings.Builder) string {
+func convertDifyChatToOllama(chunk string, model string, sb *strings.Builder, isStream bool) string {
 	chunk = strings.Trim(strings.TrimPrefix(chunk, "data:"), "\n")
 	var output common.OutputData
 
@@ -150,6 +150,10 @@ func convertDifyChatToOllama(chunk string, model string, sb *strings.Builder) st
 		}
 	default:
 		output = common.OutputData{}
+	}
+
+	if !isStream {
+		output.Done = true
 	}
 
 	var buffer bytes.Buffer
