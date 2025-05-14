@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	_ "github.com/glebarez/sqlite"
 	_ "github.com/go-sql-driver/mysql" // MySQL 驱动
-	_ "github.com/mattn/go-sqlite3"    // SQLite 驱动
 	"log"
 	"modhub/common"
 	"strings"
@@ -21,7 +21,7 @@ var (
 
 // 设置配置值的函数
 func SetConfigValue(key string, value string) error {
-	db, err := sql.Open("sqlite3", local_sqlite_name)
+	db, err := sql.Open("sqlite", local_sqlite_name)
 	if err != nil {
 		log.Printf("无法连接到 SQLite 数据库: %v", err)
 		return err
@@ -50,7 +50,7 @@ func SetConfigValue(key string, value string) error {
 
 // 获取配置值的函数
 func GetConfigValue(key string) (string, error) {
-	db, err := sql.Open("sqlite3", local_sqlite_name)
+	db, err := sql.Open("sqlite", local_sqlite_name)
 	if err != nil {
 		log.Printf("无法连接到 SQLite 数据库: %v", err)
 		return "", err
@@ -99,7 +99,7 @@ func GetBackendDBInfo() (address string, username string, password string, dbnam
 // 主同步函数：从 MySQL 获取数据并保存到 SQLite 的 JSON 字段
 func SyncDataToJSON() error {
 	// 连接 MySQL
-	sqliteDB, err := sql.Open("sqlite3", local_sqlite_name)
+	sqliteDB, err := sql.Open("sqlite", local_sqlite_name)
 	if err != nil {
 		log.Printf("无法连接到 SQLite 数据库: %v", err)
 		return err
@@ -352,7 +352,7 @@ func buildOllamaOrOpenAIModelJson(rowData map[string]interface{}) (string, strin
 }
 
 func BuildModelMapCacheInfo() (map[string]interface{}, error) {
-	sqliteDB, err := sql.Open("sqlite3", local_sqlite_name)
+	sqliteDB, err := sql.Open("sqlite", local_sqlite_name)
 	if err != nil {
 		log.Printf("无法连接到 SQLite 数据库: %v", err)
 		return nil, err
