@@ -239,7 +239,7 @@ func ChatHandler(c *gin.Context) {
 			}
 		case "dify_work_flow":
 			difyUrl, _ := url.JoinPath(difyData.Endpoint, "/v1/workflows/run")
-			if err := modproxy.ForwardToDifyCompletionStream(difyUrl, difyData.Token, req, c); err != nil {
+			if err := modproxy.ForwardToDifyWorkFlowStream(difyUrl, difyData.Token, req, c); err != nil {
 				log.Printf("转发到 Dify 服务时出错: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 Dify 服务失败"})
 			}

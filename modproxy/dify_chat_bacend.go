@@ -17,6 +17,7 @@ import (
 // Dify 请求响应结构体
 
 func ForwardToDifyChatStream(difyURL, apiKey string, req common.ChatRequest, c *gin.Context) error {
+	log.Println("recv ForwardToDifyChatStream..")
 	difyReq, err := convertToDifyChatRequest(req)
 	if err != nil {
 		return err
@@ -60,12 +61,14 @@ func ForwardToDifyChatStream(difyURL, apiKey string, req common.ChatRequest, c *
 	}
 	var sb strings.Builder
 
+	log.Println("开始读取数据....")
 	for {
 		// 每次读取一个数据块
 		chunk, err := reader.ReadBytes('\n') // Dify 的流式 API 通常以换行符分割
 		if len(chunk) > 0 {
 			processedChunk := convertDifyChatToOllama(string(chunk), req.Model, &sb, isStream)
 			if len(processedChunk) == 0 {
+				fmt.Println("processedChunk is empty", string(chunk))
 				continue
 			}
 			if isStream {
@@ -75,7 +78,7 @@ func ForwardToDifyChatStream(difyURL, apiKey string, req common.ChatRequest, c *
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "写入客户端响应时出错"})
 					return writeErr
 				}
-
+				log.Println("write data.....", len(processedChunk))
 				// 刷新缓冲区，保证客户端实时接收到数据
 				c.Writer.Flush()
 			} else {

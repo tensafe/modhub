@@ -22,12 +22,13 @@ import (
 var corerulesetFiles embed.FS
 
 type RunOptions struct {
-	Action  string
-	Address string
-	DBHost  string
-	DBUser  string
-	DBPass  string
-	DBName  string
+	Action   string
+	Address  string
+	DBHost   string
+	DBUser   string
+	DBPass   string
+	DBName   string
+	AutoSync bool
 }
 
 var (
@@ -45,6 +46,7 @@ Options:
   --dbuser         set web db user name (default: root)
   --dbpass         set web db password (default: password)
   --dbname         set web db name (default: dbname)
+  --sync		   auto sync models(default: true)
 `, os.Args[0])
 	}
 	flag.StringVar(&options.Action, "action", "web", "specify the action to perform")
@@ -53,6 +55,7 @@ Options:
 	flag.StringVar(&options.DBUser, "dbuser", "root", "set db user name")
 	flag.StringVar(&options.DBPass, "dbpass", "password", "set db password")
 	flag.StringVar(&options.DBName, "dbname", "dbname", "set database name")
+	flag.BoolVar(&options.AutoSync, "sync", false, "set auto sync models")
 	flag.Parse()
 }
 
@@ -134,7 +137,7 @@ func deleteFolder(folder string) error {
 func SyncCronData() error {
 	scheduler := gocron.NewScheduler(time.UTC)
 	// 添加任务
-	scheduler.Every(60).Seconds().Do(bkconfig.SyncBackendData)
+	scheduler.Every(60).Seconds().Do(bkconfig.SyncBackendData, options.AutoSync)
 	// 启动调度器
 	scheduler.StartAsync()
 	return nil
@@ -158,7 +161,7 @@ func main() {
 		fmt.Println("show dbconfig info:", dbHost, dbUserName, dbPassword, dbName)
 	} else if options.Action == "loadbackend" {
 		fmt.Println("Action:", options.Action)
-		backends := bkconfig.SyncBackendData()
+		backends := bkconfig.SyncBackendData(true)
 		for _, backend := range backends {
 			fmt.Println(backend)
 		}

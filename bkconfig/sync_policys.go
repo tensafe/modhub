@@ -408,8 +408,10 @@ func BuildModelMapCacheInfo() (map[string]interface{}, error) {
 	return modelMapCache, nil
 }
 
-func SyncBackendData() map[string]interface{} {
-	SyncDataToJSON()
+func SyncBackendData(async bool) map[string]interface{} {
+	if async {
+		SyncDataToJSON()
+	}
 	modelCache, err := BuildModelMapCacheInfo()
 	if err != nil {
 		return nil
