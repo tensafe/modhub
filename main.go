@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -166,10 +167,13 @@ func main() {
 			fmt.Println(backend)
 		}
 	} else {
-		targetDir := "tswaf_coreruleset"
 		// 将所有嵌入的文件释放到目标目录
-		if err := extractEmbedFiles(targetDir, "coreruleset"); err != nil {
-			log.Printf("Error extracting embedded files: %v", err)
+		if runtime.GOOS == "windows" {
+		} else {
+			targetDir := "tswaf_coreruleset"
+			if err := extractEmbedFiles(targetDir, "coreruleset"); err != nil {
+				log.Printf("Error extracting embedded files: %v", err)
+			}
 		}
 
 		SyncCronData()

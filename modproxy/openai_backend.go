@@ -170,7 +170,7 @@ func ConvertOpenAiToOllama(chunk string, model string, sb *strings.Builder) stri
 				Role:    "assistant",
 				Content: inputData.Choices[0].Delta.Content,
 			},
-			Done: true, // 假设 Answer 是完整的，直接标记 done 为 true
+			Done: false, // 假设 Answer 是完整的，直接标记 done 为 true
 		}
 	}
 
