@@ -187,7 +187,7 @@ func SyncDataToJSON() error {
 			} else {
 				log.Printf("<UNK>: %v", err)
 			}
-		} else if strings.EqualFold(backend_type, "openai") || strings.EqualFold(backend_type, "ollama") {
+		} else if strings.EqualFold(backend_type, "openai") || strings.EqualFold(backend_type, "ollama") || strings.EqualFold(backend_type, "knowledge_base") {
 			model_id, model_json, err := buildOllamaOrOpenAIModelJson(rowData)
 			if err == nil {
 				//fmt.Println(model_id, model_json)

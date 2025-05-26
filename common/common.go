@@ -95,8 +95,8 @@ func (t *ToolFunction) String() string {
 }
 
 type ChatRequest struct {
-	Model    string        `json:"model"`
-	Messages []ChatMessage `json:"messages" binding:"required"`
+	Model    string        `json:"model,omitempty"`
+	Messages []ChatMessage `json:"messages,omitempty"`
 	// Stream enables streaming of returned responses; true by default.
 	Stream *bool `json:"stream,omitempty"`
 
@@ -111,7 +111,8 @@ type ChatRequest struct {
 	Tools `json:"tools,omitempty"`
 
 	// Options lists model-specific options.
-	Options map[string]interface{} `json:"options"`
+	Options map[string]interface{} `json:"options,omitempty"`
+	KbIds   string                 `json:"kbIds,omitempty"`
 }
 
 // 定义输入数据结构

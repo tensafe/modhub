@@ -87,13 +87,15 @@ func ModelMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	}).ServeHTTP(w, r)
 }
 
-func RouterApi(address string) {
-	waf := createWAF()
+func RouterApi(address string, enableWaf bool) {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	if waf != nil {
-		router.Use(corazaMiddleware(waf))
+	if enableWaf {
+		waf := createWAF()
+		if waf != nil {
+			router.Use(corazaMiddleware(waf))
+		}
 	}
 
 	// 全局 CORS 中间件
@@ -246,6 +248,22 @@ func ChatHandler(c *gin.Context) {
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "未匹配合适Dify服务"})
 		}
+	}
+
+	if strings.EqualFold(modelBackend.Type, "knowledge_base") {
+		log.Printf("检测到本地知识库模型，开始流式转发请求: %s", req.Model)
+		var ollamaData common.ModelBackendNodeOllamaOrOpenAI
+		parseBackendData(modelBackend.ModelData, &ollamaData)
+		//req.Model = modelBackend.ModelName
+		req.KbIds = modelBackend.ModelID
+		req.Model = ""
+
+		localKnowledgeURL, _ := url.JoinPath(ollamaData.Endpoint, "/api/chat")
+		if err := modproxy.ForwardToLocalKnowledgeOllamaStream(localKnowledgeURL, req, c); err != nil {
+			log.Printf("转发到 LocalKnowledge 服务时出错: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "转发到 LocalKnowledge 服务失败"})
+		}
+		return
 	}
 }
 

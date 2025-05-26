@@ -23,13 +23,14 @@ import (
 var corerulesetFiles embed.FS
 
 type RunOptions struct {
-	Action   string
-	Address  string
-	DBHost   string
-	DBUser   string
-	DBPass   string
-	DBName   string
-	AutoSync bool
+	Action    string
+	Address   string
+	DBHost    string
+	DBUser    string
+	DBPass    string
+	DBName    string
+	AutoSync  bool
+	EnableWaf bool
 }
 
 var (
@@ -48,6 +49,7 @@ Options:
   --dbpass         set web db password (default: password)
   --dbname         set web db name (default: dbname)
   --sync		   auto sync models(default: true)
+  --waf			   open waf (default: false)
 `, os.Args[0])
 	}
 	flag.StringVar(&options.Action, "action", "web", "specify the action to perform")
@@ -56,7 +58,8 @@ Options:
 	flag.StringVar(&options.DBUser, "dbuser", "root", "set db user name")
 	flag.StringVar(&options.DBPass, "dbpass", "password", "set db password")
 	flag.StringVar(&options.DBName, "dbname", "dbname", "set database name")
-	flag.BoolVar(&options.AutoSync, "sync", false, "set auto sync models")
+	flag.BoolVar(&options.AutoSync, "sync", true, "set auto sync models")
+	flag.BoolVar(&options.EnableWaf, "waf", false, "open/close waf")
 	flag.Parse()
 }
 
@@ -177,7 +180,7 @@ func main() {
 		}
 
 		SyncCronData()
-		route.RouterApi(options.Address)
+		route.RouterApi(options.Address, options.EnableWaf)
 		// 捕捉系统信号，以便优雅地关闭程序
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)

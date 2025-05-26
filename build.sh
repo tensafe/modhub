@@ -1,3 +1,3 @@
 GOOS=windows GOARCH=amd64 go build
 
-GOOS=linux GOARCH=amd64 go build -o ollama-sdu-linux
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o modhub-linux
