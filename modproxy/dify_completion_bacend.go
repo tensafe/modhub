@@ -148,7 +148,10 @@ func convertDifyCompletionToOllama(chunk string, model string, sb *strings.Build
 			Done: true, // 假设 Answer 是完整的，直接标记 done 为 true
 		}
 	default:
-		output = common.OutputData{}
+		output = common.OutputData{
+			Model:     model,
+			CreatedAt: time.Now().Format(time.RFC3339Nano), // 当前时间
+		}
 	}
 
 	if !isStream {
