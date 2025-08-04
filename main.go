@@ -148,6 +148,8 @@ func SyncCronData() error {
 }
 
 func main() {
+	// 启用 [日期 时间] + 文件名+行号 作为日志前缀
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	parseArgs()
 	if options.Action == "setconfig" {
 		fmt.Println("Action:", options.Action)

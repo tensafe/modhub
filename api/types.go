@@ -105,6 +105,7 @@ type ChatRequest struct {
 
 	// Options lists model-specific options.
 	Options map[string]interface{} `json:"options"`
+	Inputs  map[string]interface{} `json:"inputs,omitempty"`
 }
 
 type Tools []Tool

@@ -100,6 +100,8 @@ type ChatRequest struct {
 	// Stream enables streaming of returned responses; true by default.
 	Stream *bool `json:"stream,omitempty"`
 
+	Inputs map[string]interface{} `json:"inputs,omitempty"`
+
 	// Format is the format to return the response in (e.g. "json").
 	Format json.RawMessage `json:"format,omitempty"`
 

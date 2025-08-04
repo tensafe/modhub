@@ -80,19 +80,20 @@ type StreamOptions struct {
 }
 
 type ChatCompletionRequest struct {
-	Model            string          `json:"model"`
-	Messages         []Message       `json:"messages"`
-	Stream           bool            `json:"stream"`
-	StreamOptions    *StreamOptions  `json:"stream_options"`
-	MaxTokens        *int            `json:"max_tokens"`
-	Seed             *int            `json:"seed"`
-	Stop             any             `json:"stop"`
-	Temperature      *float64        `json:"temperature"`
-	FrequencyPenalty *float64        `json:"frequency_penalty"`
-	PresencePenalty  *float64        `json:"presence_penalty"`
-	TopP             *float64        `json:"top_p"`
-	ResponseFormat   *ResponseFormat `json:"response_format"`
-	Tools            []api.Tool      `json:"tools"`
+	Model            string                 `json:"model"`
+	Messages         []Message              `json:"messages"`
+	Stream           bool                   `json:"stream"`
+	Inputs           map[string]interface{} `json:"inputs"`
+	StreamOptions    *StreamOptions         `json:"stream_options"`
+	MaxTokens        *int                   `json:"max_tokens"`
+	Seed             *int                   `json:"seed"`
+	Stop             any                    `json:"stop"`
+	Temperature      *float64               `json:"temperature"`
+	FrequencyPenalty *float64               `json:"frequency_penalty"`
+	PresencePenalty  *float64               `json:"presence_penalty"`
+	TopP             *float64               `json:"top_p"`
+	ResponseFormat   *ResponseFormat        `json:"response_format"`
+	Tools            []api.Tool             `json:"tools"`
 }
 
 type ChatCompletion struct {
@@ -526,6 +527,7 @@ func fromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 		Options:  options,
 		Stream:   &r.Stream,
 		Tools:    r.Tools,
+		Inputs:   r.Inputs,
 	}, nil
 }
 

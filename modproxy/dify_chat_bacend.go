@@ -27,6 +27,7 @@ func ForwardToDifyChatStream(difyURL, apiKey string, req common.ChatRequest, c *
 	if err != nil {
 		return err
 	}
+	log.Printf("difyReqBody: %s\n", string(difyReqBody))
 	// 构造 HTTP 请求
 	client := &http.Client{}
 	httpReq, err := http.NewRequest("POST", difyURL, bytes.NewBuffer(difyReqBody))
@@ -190,9 +191,14 @@ func convertToDifyChatRequest(req common.ChatRequest) (*common.DifyRequest, erro
 		mode = "streaming"
 	}
 
+	inputs := req.Inputs
+	if inputs == nil {
+		inputs = make(map[string]interface{})
+	}
+
 	return &common.DifyRequest{
 		Query:        query,
-		Inputs:       make(map[string]interface{}),
+		Inputs:       inputs,
 		ResponseMode: mode,
 		User:         req.Model,
 	}, nil
