@@ -8,6 +8,7 @@ import (
 	"github.com/corazawaf/coraza/v3/types"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"io"
 	"log"
 	"modhub/bkconfig"
 	"modhub/common"
@@ -87,7 +88,7 @@ func ModelMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	}).ServeHTTP(w, r)
 }
 
-func RouterApi(address string, enableWaf bool) {
+func RouterApi(address string, enableWaf bool, backend string) {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
@@ -155,8 +156,12 @@ func RouterApi(address string, enableWaf bool) {
 		c.Status(http.StatusOK) // 返回 200 状态码
 	})
 	// Chat endpoint
-	router.POST("/api/chat", ChatHandler)
-	router.POST("/v1/chat/completions", openai.ChatMiddleware(), ChatHandler)
+	router.POST("/api/chat", func(c *gin.Context) {
+		ChatHandler(c, backend)
+	})
+	router.POST("/v1/chat/completions", openai.ChatMiddleware(), func(c *gin.Context) {
+		ChatHandler(c, backend)
+	})
 	router.GET("/v1/models", openai.ListMiddleware(), ListHandler)
 
 	//router.POST("/v1/completions", openai.CompletionsMiddleware(), GenerateHandler)
@@ -174,7 +179,53 @@ func ListHandler(c *gin.Context) {
 	})
 }
 
-func ChatHandler(c *gin.Context) {
+func ResetToken(c *gin.Context, backend string) {
+	// 从前端请求中取 Authorization
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
+		c.Abort() // 阻止后续处理
+		return
+	}
+
+	// 构造后台请求
+	profileURL := fmt.Sprintf("%s/prod-api/system/user/profile", backend)
+	httpReq, err := http.NewRequest("GET", profileURL, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.Abort() // 阻止后续处理
+		return
+	}
+
+	// 带上 Authorization
+	httpReq.Header.Set("Authorization", authHeader)
+
+	client := &http.Client{}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.Abort() // 阻止后续处理
+		return
+	}
+	defer resp.Body.Close()
+
+	// 读取返回内容
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.Abort() // 阻止后续处理
+		return
+	}
+
+	// 如果后台返回非 200，可以直接返回错误
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": string(body)})
+		c.Abort() // 阻止后续处理
+		return
+	}
+}
+
+func ChatHandler(c *gin.Context, backend string) {
 	var req common.ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -186,7 +237,7 @@ func ChatHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model not found"})
 		return
 	}
-
+	ResetToken(c, backend)
 	// 如果模型 ID 以 "ollama_" 开头，则转发到 ollama 后端服务
 	if strings.EqualFold(modelBackend.Type, "ollama") {
 		log.Printf("检测到Ollama模型，开始流式转发请求: %s", req.Model)

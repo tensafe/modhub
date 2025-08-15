@@ -24,6 +24,7 @@ var corerulesetFiles embed.FS
 
 type RunOptions struct {
 	Action    string
+	Backend   string
 	Address   string
 	DBHost    string
 	DBUser    string
@@ -44,6 +45,7 @@ Options:
   -h, --help       show this help message and exit
   --action         specify the action to perform (default: web, getconfig, setconfig,loadbackend)
   --address        set web server address (default: 0.0.0.0:8090)
+  --backend        set backend server address (default: 127.0.0.1:9000)
   --dbhost         set web db host (default: localhost:3306)
   --dbuser         set web db user name (default: root)
   --dbpass         set web db password (default: password)
@@ -54,6 +56,7 @@ Options:
 	}
 	flag.StringVar(&options.Action, "action", "web", "specify the action to perform")
 	flag.StringVar(&options.Address, "address", "0.0.0.0:8090", "set web server address")
+	flag.StringVar(&options.Backend, "backend", "127.0.0.1:9000", "set backend server address") // 新增参数
 	flag.StringVar(&options.DBHost, "dbhost", "localhost:3306", "set web db host")
 	flag.StringVar(&options.DBUser, "dbuser", "root", "set db user name")
 	flag.StringVar(&options.DBPass, "dbpass", "password", "set db password")
@@ -182,7 +185,7 @@ func main() {
 		}
 
 		SyncCronData()
-		route.RouterApi(options.Address, options.EnableWaf)
+		route.RouterApi(options.Address, options.EnableWaf, options.Backend)
 		// 捕捉系统信号，以便优雅地关闭程序
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
