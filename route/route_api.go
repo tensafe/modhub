@@ -179,13 +179,13 @@ func ListHandler(c *gin.Context) {
 	})
 }
 
-func ResetToken(c *gin.Context, backend string) {
+func ResetToken(c *gin.Context, backend string) bool {
 	// 从前端请求中取 Authorization
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing", "code": 401})
 		c.Abort() // 阻止后续处理
-		return
+		return true
 	}
 
 	// 构造后台请求
@@ -194,7 +194,7 @@ func ResetToken(c *gin.Context, backend string) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		c.Abort() // 阻止后续处理
-		return
+		return true
 	}
 
 	// 带上 Authorization
@@ -205,7 +205,7 @@ func ResetToken(c *gin.Context, backend string) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		c.Abort() // 阻止后续处理
-		return
+		return true
 	}
 	defer resp.Body.Close()
 
@@ -213,16 +213,31 @@ func ResetToken(c *gin.Context, backend string) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		c.Abort() // 阻止后续处理
-		return
+		c.Abort()
+		return true
 	}
 
+	// 尝试解析 JSON 并检查 code 字段
+	var respMap map[string]interface{}
+	if err := json.Unmarshal(body, &respMap); err == nil {
+		if codeVal, ok := respMap["code"]; ok {
+			// 这里假设 code 是数字类型
+			if codeNum, ok := codeVal.(int); ok && codeNum != 200 {
+				// 原样返回 JSON 内容
+				c.Data(codeNum, "application/json", body)
+				//c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing", "code": codeNum})
+				c.Abort()
+				return true
+			}
+		}
+	}
 	// 如果后台返回非 200，可以直接返回错误
 	if resp.StatusCode != http.StatusOK {
 		c.JSON(resp.StatusCode, gin.H{"error": string(body)})
 		c.Abort() // 阻止后续处理
-		return
+		return true
 	}
+	return false
 }
 
 func ChatHandler(c *gin.Context, backend string) {
@@ -237,7 +252,10 @@ func ChatHandler(c *gin.Context, backend string) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model not found"})
 		return
 	}
-	ResetToken(c, backend)
+	if ResetToken(c, backend) {
+		return
+	}
+	//ResetToken(c, backend)
 	// 如果模型 ID 以 "ollama_" 开头，则转发到 ollama 后端服务
 	if strings.EqualFold(modelBackend.Type, "ollama") {
 		log.Printf("检测到Ollama模型，开始流式转发请求: %s", req.Model)

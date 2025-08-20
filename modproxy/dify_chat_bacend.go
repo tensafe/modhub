@@ -140,7 +140,8 @@ func convertDifyChatToOllama(chunk string, model string, sb *strings.Builder, is
 				Role:    "assistant",
 				Content: inputData.Answer,
 			},
-			Done: false, // 假设 Answer 是完整的，直接标记 done 为 true
+			Done:           false, // 假设 Answer 是完整的，直接标记 done 为 true
+			ConversationID: inputData.ConversationID,
 		}
 	case "message_end":
 		output = common.OutputData{
@@ -150,12 +151,14 @@ func convertDifyChatToOllama(chunk string, model string, sb *strings.Builder, is
 				Role:    "assistant",
 				Content: "",
 			},
-			Done: true, // 假设 Answer 是完整的，直接标记 done 为 true
+			Done:           true, // 假设 Answer 是完整的，直接标记 done 为 true
+			ConversationID: inputData.ConversationID,
 		}
 	default:
 		output = common.OutputData{
-			Model:     model,
-			CreatedAt: time.Now().Format(time.RFC3339Nano), // 当前时间
+			Model:          model,
+			CreatedAt:      time.Now().Format(time.RFC3339Nano), // 当前时间
+			ConversationID: inputData.ConversationID,
 		}
 	}
 
@@ -171,7 +174,7 @@ func convertDifyChatToOllama(chunk string, model string, sb *strings.Builder, is
 		log.Println("Error encoding JSON:", err)
 		return ""
 	}
-	return string(buffer.String())
+	return buffer.String()
 }
 
 func convertToDifyChatRequest(req common.ChatRequest) (*common.DifyRequest, error) {
@@ -197,9 +200,10 @@ func convertToDifyChatRequest(req common.ChatRequest) (*common.DifyRequest, erro
 	}
 
 	return &common.DifyRequest{
-		Query:        query,
-		Inputs:       inputs,
-		ResponseMode: mode,
-		User:         req.Model,
+		Query:          query,
+		Inputs:         inputs,
+		ResponseMode:   mode,
+		User:           req.Model,
+		ConversationID: req.ConversationID,
 	}, nil
 }

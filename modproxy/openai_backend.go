@@ -182,5 +182,5 @@ func ConvertOpenAiToOllama(chunk string, model string, sb *strings.Builder) stri
 		log.Println("Error encoding JSON:", err)
 		return ""
 	}
-	return string(buffer.String())
+	return buffer.String()
 }

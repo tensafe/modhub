@@ -94,6 +94,7 @@ type ChatCompletionRequest struct {
 	TopP             *float64               `json:"top_p"`
 	ResponseFormat   *ResponseFormat        `json:"response_format"`
 	Tools            []api.Tool             `json:"tools"`
+	ConversationID   string                 `json:"conversation_id,omitempty"`
 }
 
 type ChatCompletion struct {
@@ -114,6 +115,7 @@ type ChatCompletionChunk struct {
 	SystemFingerprint string        `json:"system_fingerprint"`
 	Choices           []ChunkChoice `json:"choices"`
 	Usage             *Usage        `json:"usage,omitempty"`
+	ConversationID    string        `json:"conversation_id,omitempty"`
 }
 
 // TODO (https://github.com/ollama/ollama/issues/5259): support []string, []int and [][]int
@@ -202,7 +204,6 @@ func NewError(code int, message string) ErrorResponse {
 	default:
 		etype = "api_error"
 	}
-
 	return ErrorResponse{Error{Type: etype, Message: message}}
 }
 
@@ -275,6 +276,7 @@ func toChunk(id string, r api.ChatResponse, toolCallSent bool) ChatCompletionChu
 		Created:           time.Now().Unix(),
 		Model:             r.Model,
 		SystemFingerprint: "fp_ollama",
+		ConversationID:    r.ConversationID,
 		Choices: []ChunkChoice{{
 			Index: 0,
 			Delta: Message{Role: "assistant", Content: r.Message.Content, ToolCalls: toolCalls},
@@ -521,13 +523,14 @@ func fromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 	}
 
 	return &api.ChatRequest{
-		Model:    r.Model,
-		Messages: messages,
-		Format:   format,
-		Options:  options,
-		Stream:   &r.Stream,
-		Tools:    r.Tools,
-		Inputs:   r.Inputs,
+		Model:          r.Model,
+		Messages:       messages,
+		Format:         format,
+		Options:        options,
+		Stream:         &r.Stream,
+		Tools:          r.Tools,
+		Inputs:         r.Inputs,
+		ConversationID: r.ConversationID,
 	}, nil
 }
 

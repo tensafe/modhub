@@ -113,8 +113,9 @@ type ChatRequest struct {
 	Tools `json:"tools,omitempty"`
 
 	// Options lists model-specific options.
-	Options map[string]interface{} `json:"options,omitempty"`
-	KbIds   string                 `json:"kbIds,omitempty"`
+	Options        map[string]interface{} `json:"options,omitempty"`
+	KbIds          string                 `json:"kbIds,omitempty"`
+	ConversationID string                 `json:"conversation_id,omitempty"`
 }
 
 // 定义输入数据结构
@@ -135,13 +136,14 @@ type InputData struct {
 
 // 定义输出数据结构
 type OutputData struct {
-	Model         string  `json:"model"`
-	CreatedAt     string  `json:"created_at"`
-	Message       Message `json:"message"`
-	Done          bool    `json:"done"`
-	DoneReason    string  `json:"done_reason,omitempty"`
-	TotalDuration int64   `json:"total_duration,omitempty"`
-	LoadDuration  int64   `json:"load_duration,omitempty"`
+	Model          string  `json:"model"`
+	CreatedAt      string  `json:"created_at"`
+	Message        Message `json:"message"`
+	Done           bool    `json:"done"`
+	DoneReason     string  `json:"done_reason,omitempty"`
+	TotalDuration  int64   `json:"total_duration,omitempty"`
+	LoadDuration   int64   `json:"load_duration,omitempty"`
+	ConversationID string  `json:"conversation_id,omitempty"`
 }
 type Message struct {
 	Role    string `json:"role"`

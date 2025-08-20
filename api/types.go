@@ -104,8 +104,9 @@ type ChatRequest struct {
 	Tools `json:"tools,omitempty"`
 
 	// Options lists model-specific options.
-	Options map[string]interface{} `json:"options"`
-	Inputs  map[string]interface{} `json:"inputs,omitempty"`
+	Options        map[string]interface{} `json:"options"`
+	Inputs         map[string]interface{} `json:"inputs,omitempty"`
+	ConversationID string                 `json:"conversation_id,omitempty"`
 }
 
 type Tools []Tool
@@ -186,13 +187,12 @@ func (t *ToolFunction) String() string {
 // ChatResponse is the response returned by [Client.Chat]. Its fields are
 // similar to [GenerateResponse].
 type ChatResponse struct {
-	Model      string    `json:"model"`
-	CreatedAt  time.Time `json:"created_at"`
-	Message    Message   `json:"message"`
-	DoneReason string    `json:"done_reason,omitempty"`
-
-	Done bool `json:"done"`
-
+	Model          string    `json:"model"`
+	CreatedAt      time.Time `json:"created_at"`
+	Message        Message   `json:"message"`
+	DoneReason     string    `json:"done_reason,omitempty"`
+	ConversationID string    `json:"conversation_id,omitempty"`
+	Done           bool      `json:"done"`
 	Metrics
 }
 
