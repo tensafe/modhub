@@ -101,7 +101,7 @@ func SyncDataToJSON() error {
 	// 连接 MySQL
 	sqliteDB, err := sql.Open("sqlite", local_sqlite_name)
 	if err != nil {
-		log.Printf("无法连接到 SQLite 数据库: %v", err)
+		log.Fatalf("无法连接到 SQLite 数据库: %v", err)
 		return err
 	}
 	defer sqliteDB.Close()
@@ -111,7 +111,7 @@ func SyncDataToJSON() error {
 
 	mysqlDB, err := sql.Open("mysql", mysqlDSN)
 	if err != nil {
-		log.Printf("无法连接到 MySQL: %v", err)
+		log.Fatalf("无法连接到 MySQL: %v", err)
 		return err
 	}
 	defer mysqlDB.Close()
@@ -124,7 +124,7 @@ func SyncDataToJSON() error {
 	);`
 	_, err = sqliteDB.Exec(createTableSQL)
 	if err != nil {
-		log.Printf("创建 SQLite 表失败: %v", err)
+		log.Fatalf("创建 SQLite 表失败: %v", err)
 		return err
 	}
 

@@ -270,6 +270,9 @@ func toChatCompletion(id string, r api.ChatResponse) ChatCompletion {
 
 func toChunk(id string, r api.ChatResponse, toolCallSent bool) ChatCompletionChunk {
 	toolCalls := toToolCalls(r.Message.ToolCalls)
+	if r.ReqId != "" {
+		id = r.ReqId
+	}
 	return ChatCompletionChunk{
 		Id:                id,
 		Object:            "chat.completion.chunk",

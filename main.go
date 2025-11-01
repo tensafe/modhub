@@ -141,13 +141,15 @@ func deleteFolder(folder string) error {
 	return nil
 }
 
-func SyncCronData() error {
+func SyncCronData() {
 	scheduler := gocron.NewScheduler(time.UTC)
 	// 添加任务
-	scheduler.Every(60).Seconds().Do(bkconfig.SyncBackendData, options.AutoSync)
+	_, err := scheduler.Every(60).Seconds().Do(bkconfig.SyncBackendData, options.AutoSync)
+	if err != nil {
+		log.Fatalf("定时任务启动失败：%v", err)
+	}
 	// 启动调度器
 	scheduler.StartAsync()
-	return nil
 }
 
 func main() {

@@ -190,6 +190,7 @@ type ChatResponse struct {
 	Model          string    `json:"model"`
 	CreatedAt      time.Time `json:"created_at"`
 	Message        Message   `json:"message"`
+	ReqId          string    `json:"req_id,omitempty"`
 	DoneReason     string    `json:"done_reason,omitempty"`
 	ConversationID string    `json:"conversation_id,omitempty"`
 	Done           bool      `json:"done"`

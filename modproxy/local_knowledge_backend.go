@@ -71,7 +71,7 @@ func ForwardToLocalKnowledgeOllamaStream(ollamaURL string, req common.ChatReques
 		if len(chunk) > 0 {
 			if isStream {
 				// 将处理后的数据写入客户端响应
-				if _, writeErr := c.Writer.Write([]byte(chunk)); writeErr != nil {
+				if _, writeErr := c.Writer.Write(chunk); writeErr != nil {
 					log.Println("Error writing processed chunk:", writeErr)
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Error writing processed chunk"})
 					return writeErr
