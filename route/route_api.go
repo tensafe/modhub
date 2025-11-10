@@ -222,9 +222,9 @@ func ResetToken(c *gin.Context, backend string) bool {
 	if err := json.Unmarshal(body, &respMap); err == nil {
 		if codeVal, ok := respMap["code"]; ok {
 			// 这里假设 code 是数字类型
-			if codeNum, ok := codeVal.(int); ok && codeNum != 200 {
+			if codeNum, ok := codeVal.(float64); ok && int(codeNum) != 200 {
 				// 原样返回 JSON 内容
-				c.Data(codeNum, "application/json", body)
+				c.Data(int(codeNum), "application/json", body)
 				//c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing", "code": codeNum})
 				c.Abort()
 				return true
