@@ -185,7 +185,6 @@ func main() {
 				log.Printf("Error extracting embedded files: %v", err)
 			}
 		}
-
 		SyncCronData()
 		route.RouterApi(options.Address, options.EnableWaf, options.Backend)
 		// 捕捉系统信号，以便优雅地关闭程序

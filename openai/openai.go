@@ -33,6 +33,7 @@ type ErrorResponse struct {
 
 type Message struct {
 	Role      string     `json:"role"`
+	FileIds   string     `json:"fileIds"`
 	Content   any        `json:"content"`
 	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 }
@@ -401,7 +402,7 @@ func fromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 	for _, msg := range r.Messages {
 		switch content := msg.Content.(type) {
 		case string:
-			messages = append(messages, api.Message{Role: msg.Role, Content: content})
+			messages = append(messages, api.Message{Role: msg.Role, FileIds: msg.FileIds, Content: content})
 		case []any:
 			for _, c := range content {
 				data, ok := c.(map[string]any)
@@ -414,7 +415,7 @@ func fromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 					if !ok {
 						return nil, errors.New("invalid message format")
 					}
-					messages = append(messages, api.Message{Role: msg.Role, Content: text})
+					messages = append(messages, api.Message{Role: msg.Role, FileIds: msg.FileIds, Content: text})
 				case "image_url":
 					var url string
 					if urlMap, ok := data["image_url"].(map[string]any); ok {
@@ -447,7 +448,7 @@ func fromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 						return nil, errors.New("invalid message format")
 					}
 
-					messages = append(messages, api.Message{Role: msg.Role, Images: []api.ImageData{img}})
+					messages = append(messages, api.Message{Role: msg.Role, FileIds: msg.FileIds, Images: []api.ImageData{img}})
 				default:
 					return nil, errors.New("invalid message format")
 				}
@@ -465,7 +466,7 @@ func fromChatRequest(r ChatCompletionRequest) (*api.ChatRequest, error) {
 					return nil, errors.New("invalid tool call arguments")
 				}
 			}
-			messages = append(messages, api.Message{Role: msg.Role, ToolCalls: toolCalls})
+			messages = append(messages, api.Message{Role: msg.Role, FileIds: msg.FileIds, ToolCalls: toolCalls})
 		}
 	}
 

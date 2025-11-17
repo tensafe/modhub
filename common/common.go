@@ -14,6 +14,7 @@ type GenerateRequest struct {
 }
 type ChatMessage struct {
 	Role    string `json:"role" binding:"required"`
+	FileIds string `json:"fileIds" binding:"required"`
 	Content string `json:"content" binding:"required"`
 }
 
@@ -251,4 +252,23 @@ type DifyWorkFlowTTSMessageData struct {
 	CreatedAt      int64  `json:"created_at,omitempty"`      // 创建时间戳
 	TaskID         string `json:"task_id,omitempty"`         // 任务 ID
 	Audio          string `json:"audio,omitempty"`           // 音频数据
+}
+
+// 文件信息结构体
+type FileItem struct {
+	ID         int64  `json:"id"`
+	OldName    string `json:"oldName"`
+	NewName    string `json:"newName"`
+	URL        string `json:"url"`
+	SuffixName string `json:"suffixName"`
+	Size       int64  `json:"size"`
+	Content    string `json:"content"`
+	CreateTime string `json:"createTime"`
+}
+
+// 响应结构体
+type Response struct {
+	Msg  string     `json:"msg"`
+	Code int        `json:"code"`
+	Data []FileItem `json:"data"`
 }

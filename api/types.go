@@ -127,6 +127,7 @@ func (t Tool) String() string {
 type Message struct {
 	Role      string      `json:"role"`
 	Content   string      `json:"content"`
+	FileIds   string      `json:"fileIds"`
 	Images    []ImageData `json:"images,omitempty"`
 	ToolCalls []ToolCall  `json:"tool_calls,omitempty"`
 }

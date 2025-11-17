@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
+	"io/ioutil"
 	"log"
 	"modhub/bkconfig"
 	"modhub/common"
@@ -252,6 +253,14 @@ func ChatHandler(c *gin.Context, backend string) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model not found"})
 		return
 	}
+
+	//过滤请求信息中的文件id
+	err := dealContextFileIds(&req, backend)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取文件信息失败"})
+		return
+	}
+
 	if ResetToken(c, backend) {
 		return
 	}
@@ -334,6 +343,59 @@ func ChatHandler(c *gin.Context, backend string) {
 		}
 		return
 	}
+}
+
+func dealContextFileIds(req *common.ChatRequest, backend string) error {
+	messages := req.Messages
+	var b strings.Builder
+	for _, msg := range messages {
+		if msg.FileIds != "" {
+			b.WriteString(msg.FileIds)
+			b.WriteString(",") // 分隔符示例
+		}
+	}
+	if b.Len() == 0 {
+		return nil
+	}
+	fileIds := b.String()
+	if strings.HasSuffix(fileIds, ",") {
+		fileIds = fileIds[:len(fileIds)-1]
+	}
+	url := fmt.Sprintf("%s/prod-api/ragfile/content?fileIds=%s", backend, fileIds)
+
+	// 发 GET 请求
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Printf("请求失败: %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("读取响应失败: %v", err)
+		return err
+	}
+
+	// 解析 JSON
+	var result common.Response
+	if err := json.Unmarshal(body, &result); err != nil {
+		log.Printf("解析 JSON 失败: %v", err)
+		return err
+	}
+	if result.Data == nil || len(result.Data) == 0 {
+		return nil
+	}
+	// 拼接所有 content
+	for _, item := range result.Data {
+		msg := common.ChatMessage{
+			Role:    "assistant",
+			Content: item.Content,
+		}
+		messages = append(messages, msg)
+	}
+	req.Messages = messages
+	return nil
 }
 
 // 动态解析 data 字段
