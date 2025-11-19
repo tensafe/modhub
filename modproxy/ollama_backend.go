@@ -54,26 +54,27 @@ func ForwardToOllamaStream(ollamaURL string, req common.ChatRequest, c *gin.Cont
 	if req.Stream != nil && !*req.Stream {
 		isStream = false
 	}
+
 	var sb strings.Builder
-
+	buf := make([]byte, 32*1024)
 	for {
-		// 每次读取一个数据块
-		chunk, err := reader.ReadBytes('\n') // 或者使用 reader.Read() 按字节读取
-		if len(chunk) > 0 {
+		n, err := reader.Read(buf)
+		if n > 0 {
 			if isStream {
-				// 将处理后的数据写入客户端响应
-				if _, writeErr := c.Writer.Write([]byte(chunk)); writeErr != nil {
-					log.Println("Error writing processed chunk:", writeErr)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Error writing processed chunk"})
-					return writeErr
+				bufn := buf[:n]
+				chunks := checkChunk(bufn)
+				for _, chunk := range chunks {
+					// 将处理后的数据写入客户端响应
+					if _, writeErr := c.Writer.Write([]byte(chunk)); writeErr != nil {
+						log.Println("Error writing processed chunk:", writeErr)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Error writing processed chunk"})
+						return writeErr
+					}
+					// 刷新缓冲区，保证客户端实时接收到数据
+					c.Writer.Flush()
 				}
-
-				// 刷新缓冲区，保证客户端实时接收到数据
-				c.Writer.Flush()
 			}
 		}
-
-		// 检查是否遇到 EOF 或其他错误
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -99,4 +100,24 @@ func ForwardToOllamaStream(ollamaURL string, req common.ChatRequest, c *gin.Cont
 	}
 
 	return nil
+}
+
+func checkChunk(readBuffer []byte) []string {
+	readStr := string(readBuffer)
+	strArr := strings.Split(readStr, "}\n{")
+	var returnStrs []string
+	for i, str := range strArr {
+		if len(strArr) > 1 {
+			if i == 0 {
+				str = str + "}"
+			} else if i+1 == len(strArr) {
+				str = "{" + str
+			} else {
+				str = "{" + str + "}"
+			}
+		}
+		log.Println(str)
+		returnStrs = append(returnStrs, str)
+	}
+	return returnStrs
 }

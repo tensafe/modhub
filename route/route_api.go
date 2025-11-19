@@ -256,6 +256,8 @@ func ChatHandler(c *gin.Context, backend string) {
 
 	//过滤请求信息中的文件id
 	err := dealContextFileIds(&req, backend)
+	/*b, _ := json.MarshalIndent(req, "", "  ")
+	log.Printf("检测到Ollama模型，开始流式转发请求: %s", b)*/
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取文件信息失败"})
 		return
